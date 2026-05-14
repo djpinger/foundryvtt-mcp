@@ -135,6 +135,11 @@ export const sceneTools = [
           description: 'Include hidden (GM-only) tokens. Default: false',
           default: false,
         },
+        includeObjects: {
+          type: 'boolean',
+          description: 'Include loot, vehicles, and other non-combatant tokens. Default: false',
+          default: false,
+        },
       },
     },
   },

@@ -91,7 +91,7 @@ export async function routeToolRequest(
     case 'get_scene_info':
       return handleGetSceneInfo(args, foundryClient);
     case 'get_scene_actors':
-      return handleGetSceneActors(args as { sceneId?: string; includeHidden?: boolean }, foundryClient);
+      return handleGetSceneActors(args as { sceneId?: string; includeHidden?: boolean; includeObjects?: boolean }, foundryClient);
 
     // Combat tools
     case 'get_combat_state':

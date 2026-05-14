@@ -120,6 +120,24 @@ export const sceneTools = [
       },
     },
   },
+  {
+    name: 'get_scene_actors',
+    description: 'Get all tokens (actors) currently placed on the active or specified scene, with HP and disposition',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sceneId: {
+          type: 'string',
+          description: 'Optional scene ID. If not provided, uses the active scene',
+        },
+        includeHidden: {
+          type: 'boolean',
+          description: 'Include hidden (GM-only) tokens. Default: false',
+          default: false,
+        },
+      },
+    },
+  },
 ];
 
 /**

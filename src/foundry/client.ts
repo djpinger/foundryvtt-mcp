@@ -458,6 +458,40 @@ export class FoundryClient {
     return this.worldData?.scenes || [];
   }
 
+  getSceneActors(sceneId?: string): Array<{
+    tokenId: string;
+    tokenName: string;
+    actorId: string | null;
+    disposition: number;
+    hidden: boolean;
+    actor: WorldActor | null;
+  }> {
+    if (!this.worldData) {
+      return [];
+    }
+
+    const scene = sceneId
+      ? this.worldData.scenes.find((s) => s._id === sceneId)
+      : this.worldData.scenes.find((s) => s.active);
+
+    if (!scene?.tokens) {
+      return [];
+    }
+
+    return scene.tokens.map((t) => {
+      const actorId = typeof t.actorId === 'string' ? t.actorId : null;
+      const actor = actorId ? (this.worldData?.actors.find((a) => a._id === actorId) ?? null) : null;
+      return {
+        tokenId: typeof t._id === 'string' ? t._id : '',
+        tokenName: typeof t.name === 'string' ? t.name : '',
+        actorId,
+        disposition: typeof t.disposition === 'number' ? t.disposition : 0,
+        hidden: t.hidden === true,
+        actor,
+      };
+    });
+  }
+
   // ==========================================================================
   // World info
   // ==========================================================================

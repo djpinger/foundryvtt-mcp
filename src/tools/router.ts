@@ -24,7 +24,7 @@ import { handleGenerateLoot, handleGenerateNPC, handleLookupRule } from './handl
 import { handleSearchItems } from './handlers/items.js';
 import { handleGetJournal, handleSearchJournals } from './handlers/journals.js';
 import { handleReadResource } from './handlers/resources.js';
-import { handleGetSceneInfo } from './handlers/scenes.js';
+import { handleGetSceneActors, handleGetSceneInfo } from './handlers/scenes.js';
 import { handleGetUsers } from './handlers/users.js';
 import {
   handleGetWorldSummary,
@@ -90,6 +90,8 @@ export async function routeToolRequest(
     // Scene tools
     case 'get_scene_info':
       return handleGetSceneInfo(args, foundryClient);
+    case 'get_scene_actors':
+      return handleGetSceneActors(args as { sceneId?: string; includeHidden?: boolean }, foundryClient);
 
     // Combat tools
     case 'get_combat_state':

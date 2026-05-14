@@ -23,6 +23,20 @@ bun run format         # Format code (Biome)
 bun run test-connection # Test MCP→FoundryVTT connection
 ```
 
+### Docker
+
+```bash
+docker compose build          # Build image (tag: foundryvtt-mcp:latest)
+docker compose up -d          # Start server in the background
+docker compose logs -f        # Tail logs
+docker compose down           # Stop and remove container
+```
+
+The image is used by Claude Code as the MCP server transport:
+```
+docker run --rm -i --env-file .env foundryvtt-mcp:latest
+```
+
 ## Architecture
 
 ### Data Flow
@@ -42,6 +56,13 @@ bun run test-connection # Test MCP→FoundryVTT connection
 | Tools | `src/tools/definitions.ts` | MCP tool schemas |
 | Router | `src/tools/router.ts` | Request→handler dispatch |
 | Types | `src/foundry/types.ts` | FoundryVTT entity interfaces |
+
+### Adding a New Tool
+
+1. Add the schema to `src/tools/definitions.ts` (in the appropriate `*Tools` array)
+2. Add a handler function to the relevant file in `src/tools/handlers/`
+3. Add a `case` in the `switch` in `src/tools/router.ts`
+4. Add a client method to `src/foundry/client.ts` if new data access is needed
 
 ### Authentication
 
@@ -67,8 +88,18 @@ See `.claude/rules/` for detailed guidelines:
 - `testing.md` — Unit and E2E test requirements
 - `document-management.md` — Document detection and organization
 
+## Docker Files
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Multi-stage build: bun (builder) → node:20-alpine (runtime) |
+| `docker-compose.yml` | Runs the MCP server against a remote FoundryVTT instance |
+| `.dockerignore` | Excludes node_modules, dist, .env, tests from build context |
+| `.env` | Local credentials — copy from `.env.example`, never committed |
+
 ## Reference
 
 - [FoundryVTT API](https://foundryvtt.com/api/)
 - [Playwright Docs](https://playwright.dev/docs/intro)
 - [MCP SDK](https://modelcontextprotocol.io/docs)
+- [Fork](https://github.com/djpinger/foundryvtt-mcp)

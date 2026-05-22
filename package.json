@@ -1,10 +1,10 @@
 {
-  "name": "foundryvtt-mcp",
-  "version": "1.0.1",
-  "description": "Model Context Protocol server for FoundryVTT integration",
+  "name": "foundryvtt-mcp-pf2e",
+  "version": "1.1.0",
+  "description": "Model Context Protocol server for FoundryVTT — enhanced for Pathfinder 2e (PF2e) with tactical battle maps, line-of-sight, and full spell slot tracking",
   "main": "dist/index.js",
   "bin": {
-    "foundryvtt-mcp": "dist/index.js"
+    "foundryvtt-mcp-pf2e": "dist/index.js"
   },
   "type": "module",
   "scripts": {
@@ -45,17 +45,21 @@
     "mcp",
     "ai",
     "tabletop",
-    "rpg"
+    "rpg",
+    "pathfinder",
+    "pf2e",
+    "pathfinder-2e",
+    "tactical"
   ],
-  "author": "Lauri Gates",
+  "author": "Pinger (fork of laurigates/foundryvtt-mcp)",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/laurigates/foundryvtt-mcp.git"
+    "url": "https://github.com/djpinger/foundryvtt-mcp.git"
   },
-  "homepage": "https://github.com/laurigates/foundryvtt-mcp#readme",
+  "homepage": "https://github.com/djpinger/foundryvtt-mcp#readme",
   "bugs": {
-    "url": "https://github.com/laurigates/foundryvtt-mcp/issues"
+    "url": "https://github.com/djpinger/foundryvtt-mcp/issues"
   },
   "publishConfig": {
     "access": "public"

@@ -1,11 +1,23 @@
-# FoundryVTT MCP Server
+# FoundryVTT MCP Server — PF2e Enhanced Fork
 
-[![npm version](https://img.shields.io/npm/v/foundryvtt-mcp)](https://www.npmjs.com/package/foundryvtt-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> **This is a PF2e-focused fork** of [laurigates/foundryvtt-mcp](https://github.com/laurigates/foundryvtt-mcp),
+> enhanced for use with **Pathfinder 2e** and deployed via **Docker** as a Claude Code MCP server.
+> See [SETUP_GUIDE.md](SETUP_GUIDE.md) for the Docker-based quickstart.
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that integrates with FoundryVTT, allowing AI assistants to interact with your tabletop gaming sessions through natural language.
 
-## Features
+## PF2e Enhancements (this fork)
+
+- **🗺️ ASCII Battle Map** (`get_combat_positions`) — grid coordinates, wall/door rendering, alliance markers, pairwise distances
+- **👁️ Line of Sight** (`check_line_of_sight`) — pixel-space LoS check between named combatants, accounts for walls and doors
+- **📖 Full PF2e Stat Blocks** (`get_actor_details`) — speed, saves, strikes, spell slots (reads `prepared[].expended` booleans), focus pool, spellcasting entries
+- **⚔️ Alliance Detection** — uses `actor.system.details.alliance` (party/opposition/neutral) with token disposition fallback
+- **🐛 FoundryVTT v13 fixes** — combatant names resolved via actorId; MCP startup order fix; all logs routed to stderr
+- **🐳 Docker deployment** — `docker build` + `claude mcp add-json` workflow; no process management needed
+
+## Core Features (upstream)
 
 - **Dice Rolling** — standard RPG notation with any formula
 - **Data Querying** — search and inspect actors, items, scenes, journals
@@ -40,7 +52,35 @@ It is recommended to create a separate FoundryVTT user account for the MCP serve
 - You can revoke access by disabling the API user without affecting your own account
 - Limits blast radius if credentials are ever exposed
 
-### Installation
+### Installation (Docker — Recommended for this fork)
+
+```bash
+git clone https://github.com/djpinger/foundryvtt-mcp.git
+cd foundryvtt-mcp
+docker build -t foundryvtt-mcp:latest .
+```
+
+Then register with Claude Code:
+
+```bash
+claude mcp add-json -s user foundryvtt '{
+  "type": "stdio",
+  "command": "docker",
+  "args": [
+    "run", "--rm", "-i",
+    "--add-host=host.docker.internal:host-gateway",
+    "-e", "FOUNDRY_URL=http://host.docker.internal:30000",
+    "-e", "FOUNDRY_USERNAME=your_username",
+    "-e", "FOUNDRY_PASSWORD=your_password",
+    "-e", "LOG_LEVEL=info",
+    "foundryvtt-mcp:latest"
+  ]
+}'
+```
+
+Restart Claude Code after any `docker build`. See [SETUP_GUIDE.md](SETUP_GUIDE.md) for full instructions.
+
+### Installation (upstream npx/bunx)
 
 Run directly without installing — no clone needed:
 
@@ -56,7 +96,7 @@ npx -y foundryvtt-mcp
 
 ### Client Configuration
 
-#### Claude Desktop / Claude Code
+#### Claude Desktop / Claude Code (upstream config)
 
 Add to your MCP configuration (`claude_desktop_config.json` or `.mcp.json`):
 

@@ -24,7 +24,11 @@ import { handleGenerateLoot, handleGenerateNPC, handleLookupRule } from './handl
 import { handleSearchItems } from './handlers/items.js';
 import { handleGetJournal, handleSearchJournals } from './handlers/journals.js';
 import { handleReadResource } from './handlers/resources.js';
-import { handleGetSceneInfo } from './handlers/scenes.js';
+import {
+  handleCheckLineOfSight,
+  handleGetCombatPositions,
+  handleGetSceneInfo,
+} from './handlers/scenes.js';
 import { handleGetUsers } from './handlers/users.js';
 import {
   handleGetWorldSummary,
@@ -90,6 +94,19 @@ export async function routeToolRequest(
     // Scene tools
     case 'get_scene_info':
       return handleGetSceneInfo(args, foundryClient);
+    case 'get_combat_positions':
+      return handleGetCombatPositions(args, foundryClient);
+    case 'check_line_of_sight':
+      if (!('combatantA' in args) || typeof args.combatantA !== 'string') {
+        throw new Error('Missing required parameter: combatantA');
+      }
+      if (!('combatantB' in args) || typeof args.combatantB !== 'string') {
+        throw new Error('Missing required parameter: combatantB');
+      }
+      return handleCheckLineOfSight(
+        args as { combatantA: string; combatantB: string; sceneId?: string },
+        foundryClient,
+      );
 
     // Combat tools
     case 'get_combat_state':

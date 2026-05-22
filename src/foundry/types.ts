@@ -786,7 +786,8 @@ export interface WorldCombat {
     actorId?: string;
     tokenId?: string;
     sceneId?: string;
-    name: string;
+    /** Present in older Foundry versions; absent in v13+ (look up via actorId instead) */
+    name?: string;
     img?: string;
     initiative: number | null;
     hidden: boolean;

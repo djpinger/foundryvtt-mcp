@@ -113,3 +113,6 @@ test-results/
 playwright-report/
 .env.integration
 tests/integration/logs/
+
+# GM session notes — local only, never commit
+CURRENT_SESSION_NOTES.md

@@ -25,11 +25,16 @@ export async function handleGetCombatState(
         const status = c.defeated ? ' [DEFEATED]' : c.hidden ? ' [HIDDEN]' : '';
         const init = c.initiative !== null ? c.initiative.toString() : '?';
 
-        // Try to get HP/AC from worldData if actor is linked
+        // Resolve name and HP/AC from linked actor (v13+ combatants have no name field)
         let hpAc = '';
+        let displayName = c.name;
         if (c.actorId) {
           const actor = foundryClient.getRawActor(c.actorId);
           if (actor) {
+            // Use actor name if combatant has no name (FoundryVTT v13 / PF2e)
+            if (!displayName) {
+              displayName = actor.name;
+            }
             const hp = actor.system?.attributes as Record<string, unknown> | undefined;
             const hpData = hp?.hp as { value?: number; max?: number } | undefined;
             const acData = hp?.ac as { value?: number } | undefined;
@@ -41,8 +46,11 @@ export async function handleGetCombatState(
             }
           }
         }
+        if (!displayName) {
+          displayName = `Combatant ${c._id?.slice(0, 6) ?? i + 1}`;
+        }
 
-        return `${i + 1}. [${init}] **${c.name}**${hpAc}${status}${current}`;
+        return `${i + 1}. [${init}] **${displayName}**${hpAc}${status}${current}`;
       })
       .join('\n');
 

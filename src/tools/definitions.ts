@@ -120,6 +120,43 @@ export const sceneTools = [
       },
     },
   },
+  {
+    name: 'get_combat_positions',
+    description:
+      'Get token positions and distances for all combatants in the active combat. Returns an ASCII battle map with walls and doors, grid coordinates, and pairwise distances to support tactical decision-making.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sceneId: {
+          type: 'string',
+          description: 'Optional scene ID. If not provided, uses the active scene',
+        },
+      },
+    },
+  },
+  {
+    name: 'check_line_of_sight',
+    description:
+      'Check whether two named combatants have line of sight to each other, accounting for walls and closed/locked doors in the scene. Returns clear or blocked with the list of obstructing walls.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        combatantA: {
+          type: 'string',
+          description: 'Name (or partial name) of the first combatant',
+        },
+        combatantB: {
+          type: 'string',
+          description: 'Name (or partial name) of the second combatant',
+        },
+        sceneId: {
+          type: 'string',
+          description: 'Optional scene ID. If not provided, uses the active scene',
+        },
+      },
+      required: ['combatantA', 'combatantB'],
+    },
+  },
 ];
 
 /**

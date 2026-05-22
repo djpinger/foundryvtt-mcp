@@ -2,269 +2,247 @@
 
 This guide walks you through setting up the FoundryVTT MCP Server.
 
-## Quick Start
+> **Game System Note:** This fork has been enhanced with PF2e (Pathfinder 2e) specific features:
+> alliance detection, full spell slot tracking (prepared/expended), focus point pools, and
+> PF2e-aware combat position/LoS tools. It works with any FoundryVTT system but those features
+> are PF2e-specific.
 
-1. **Install dependencies**:
+---
 
-   ```bash
-   npm install
-   ```
+## Quick Start (Docker — Recommended)
 
-2. **Copy environment file**:
+Docker is the recommended way to run the MCP server. It avoids Node.js version management
+and process lifecycle issues, and lets you rebuild cleanly after any code change.
 
-   ```bash
-   cp .env.example .env
-   ```
+### 1. Build the image
 
-3. **Configure your connection** (see below)
+```bash
+docker build -t foundryvtt-mcp:latest .
+```
 
-4. **Start the server**:
-   ```bash
-   npm run dev
-   ```
+### 2. Configure Claude Code
+
+Add the MCP server to Claude Code's user config (run once):
+
+```bash
+claude mcp add-json -s user foundryvtt '{
+  "type": "stdio",
+  "command": "docker",
+  "args": [
+    "run", "--rm", "-i",
+    "--add-host=host.docker.internal:host-gateway",
+    "-e", "FOUNDRY_URL=http://host.docker.internal:30000",
+    "-e", "FOUNDRY_USERNAME=YourUsername",
+    "-e", "FOUNDRY_PASSWORD=YourPassword",
+    "-e", "LOG_LEVEL=info",
+    "foundryvtt-mcp:latest"
+  ]
+}'
+```
+
+Replace `YourUsername`, `YourPassword`, and the URL with your FoundryVTT details.
+If FoundryVTT is on a different machine, use its IP/hostname instead of `host.docker.internal`.
+
+### 3. Restart Claude Code
+
+After the first add (or after any `docker build`), restart Claude Code to pick up the new image.
+
+### 4. Verify
+
+Ask Claude: *"What's the current combat state?"* or *"Pull up the battle map"*.
+
+---
+
+## Quick Start (Direct Node.js)
+
+If you prefer to run without Docker:
+
+```bash
+npm install
+cp .env.example .env   # then edit .env with your credentials
+npm run dev
+```
+
+> **Node.js version:** This project requires Node.js 18+. If using asdf:
+> `PATH="/home/youruser/.asdf/installs/nodejs/22.7.0/bin:$PATH" npm run build`
+
+---
 
 ## Connection Setup
 
-The MCP server connects to FoundryVTT via Socket.IO using a standard user account. No custom modules are required for full game data access.
+The MCP server connects to FoundryVTT via Socket.IO using a standard user account.
+No custom modules are required for full game data access.
 
 ### Prerequisites
 
-- FoundryVTT server running with an **active world** (not on the setup screen)
+- FoundryVTT running with an **active world** loaded (not on the setup screen)
 - A FoundryVTT user account with appropriate permissions
-
-### Setup Types
-
-Before configuring, determine your FoundryVTT deployment:
-
-#### Local Development Setup
-- FoundryVTT running on your local machine
-- Typically uses `http://localhost:30000` or similar
-- No reverse proxy or SSL/TLS
-
-#### Reverse Proxy / Remote Setup
-- FoundryVTT behind a reverse proxy (nginx, Apache, Caddy, etc.)
-- Custom domains with SSL/TLS (e.g., `https://foundry.example.com`)
-- Cloud hosting or remote server deployments
-- May use custom ports or paths
-
-#### Network/IP Setup
-- FoundryVTT accessible via local network IP
-- Different port configurations
-- Direct IP access without domain names
 
 ### Configuration
 
-Update your `.env` file based on your setup type:
+Update your `.env` file (or Docker `-e` flags):
 
-**Local Development:**
+**Local (FoundryVTT on same machine):**
 ```env
 FOUNDRY_URL=http://localhost:30000
 FOUNDRY_USERNAME=your_username
 FOUNDRY_PASSWORD=your_password
 ```
 
-**Reverse Proxy / Remote:**
+**Remote / Reverse Proxy:**
 ```env
 FOUNDRY_URL=https://foundry.example.com
 FOUNDRY_USERNAME=your_username
 FOUNDRY_PASSWORD=your_password
 ```
 
-**Network/IP:**
+**Local Network:**
 ```env
 FOUNDRY_URL=http://192.168.1.100:30000
 FOUNDRY_USERNAME=your_username
 FOUNDRY_PASSWORD=your_password
 ```
 
-### Features Available
+---
 
-All features work out of the box with username/password authentication:
+## Available Tools
 
-- Search actors, items, scenes, and journals
-- Get detailed actor/item information
-- Dice rolling with FoundryVTT engine
-- Combat state and initiative tracking
-- Chat message history
-- User list and online status
-- Full-text world search
-- World summary and scene information
-- NPC and loot generation
-- Rule lookups
+### Combat & Tactical
 
-### Environment Variables
+| Tool | Description |
+|------|-------------|
+| `get_combat_state` | Initiative order, current turn, HP, AC for all combatants |
+| `get_combat_positions` | ASCII battle map with walls/doors, grid coords, pairwise distances |
+| `check_line_of_sight` | LoS check between two named combatants (accounts for walls/doors) |
 
-| Variable           | Required | Description                                  | Default |
-| ------------------ | -------- | -------------------------------------------- | ------- |
-| `FOUNDRY_URL`      | Yes      | FoundryVTT server URL                        | -       |
-| `FOUNDRY_USERNAME` | Yes      | FoundryVTT username                          | -       |
-| `FOUNDRY_PASSWORD` | Yes      | FoundryVTT password                          | -       |
-| `FOUNDRY_USER_ID`  | No       | 16-char document `_id` (bypasses username resolution) | - |
-| `FOUNDRY_API_KEY`  | No       | REST API module key (enables diagnostics)    | -       |
-| `LOG_LEVEL`        | No       | Logging level                                | `info`  |
+### Actors & Characters
 
-### Optional: Diagnostics Tools
+| Tool | Description |
+|------|-------------|
+| `search_actors` | Search by name/type; results include actor IDs |
+| `get_actor_details` | Full stat block: speed, saves, strikes, spells, spell slots (PF2e-aware) |
 
-Installing the **Foundry Local REST API** module and setting `FOUNDRY_API_KEY` enables 5 server monitoring tools:
+### Scene & World
 
-- `get_recent_logs` - Retrieve filtered FoundryVTT logs
-- `search_logs` - Search logs with regex patterns
-- `get_system_health` - Server performance and health metrics
-- `diagnose_errors` - Error analysis with troubleshooting suggestions
-- `get_health_status` - Comprehensive health diagnostics
+| Tool | Description |
+|------|-------------|
+| `get_scene_info` | Scene metadata |
+| `search_world` | Cross-collection search (actors, items, scenes, journals) |
+| `get_world_summary` | Collection counts |
+| `refresh_world_data` | Force re-fetch of world cache |
 
-To enable:
-1. Install the REST API module in FoundryVTT
-2. Enable it in your world and copy the generated API key
-3. Add `FOUNDRY_API_KEY=your_key` to your `.env` file
+### Journals, Items, Chat
 
-## Testing Your Setup
+| Tool | Description |
+|------|-------------|
+| `search_journals` | Search journal entries by name or content |
+| `get_journal` | Fetch a journal with all pages |
+| `search_items` | Search items |
+| `get_chat_messages` | Recent chat messages |
+| `get_users` | User list and online status |
 
-### 1. Test Connection
+### Dice & Generation
 
-```bash
-npm run dev
-```
+| Tool | Description |
+|------|-------------|
+| `roll_dice` | Dice rolling (1d20+5, 3d6, etc.) |
+| `generate_npc` | Random NPC |
+| `generate_loot` | Random loot by CR |
+| `lookup_rule` | Rule lookups |
 
-Look for these success messages:
+### Diagnostics (requires `FOUNDRY_API_KEY`)
 
-```
-Connected to FoundryVTT successfully
-FoundryVTT MCP Server running
-```
-
-### 2. Test with AI Assistant
-
-Once the server is running, test these commands with your AI assistant:
-
-**Dice Rolling**:
-
-- "Roll 1d20+5 for an attack roll"
-- "Roll 4d6 drop lowest for ability scores"
-
-**Data Queries**:
-
-- "Search for goblin actors"
-- "Find all magic weapons"
-- "What's the current scene information?"
-- "Who's online?"
-
-**Content Generation**:
-
-- "Generate a random NPC"
-- "Create some loot for a level 5 party"
-
-## Troubleshooting
-
-### Common Issues
-
-#### "Failed to connect to FoundryVTT"
-
-- **Check**: FoundryVTT is running at the configured URL with an active world
-- **Check**: No firewall blocking the connection
-- **Try**: Test URL in browser (local: `http://localhost:30000`, remote: `https://foundry.example.com`)
-- **For reverse proxy**: Ensure WebSocket upgrades are properly configured
-
-#### "Authentication failed"
-
-- **Check**: Username matches a FoundryVTT user exactly (case-sensitive)
-- **Check**: Password is correct
-- **Check**: User has necessary permissions in FoundryVTT
-- **Try**: Set `FOUNDRY_USER_ID` to the 16-character document `_id` to bypass username resolution
-
-#### "World data not received"
-
-- **Check**: A world is active in FoundryVTT (not on the setup screen)
-- **Check**: Socket.IO authentication completed (check server logs)
-- **Try**: Restart both FoundryVTT and the MCP server
-
-#### "Empty search results"
-
-- **Check**: Data exists in your FoundryVTT world
-- **Check**: User has permission to view the data
-- **Check**: World data loaded on connect (look for worldData log on startup)
-
-#### "WebSocket connection issues"
-
-- **Check**: FoundryVTT allows WebSocket connections
-- **Check**: No proxy server blocking WebSocket upgrades
-- **Try**: Different port or direct connection
-
-#### "Reverse Proxy / SSL Issues"
-
-**SSL Certificate Problems:**
-- **Check**: SSL certificate is valid and not expired
-- **Check**: Certificate includes your domain name
-- **Try**: Test with curl: `curl -I https://foundry.example.com`
-
-**Proxy Configuration:**
-- **Nginx**: Ensure `proxy_set_header Upgrade $http_upgrade;` and `proxy_set_header Connection "upgrade";`
-- **Apache**: Enable `mod_proxy_wstunnel` for WebSocket support
-- **Caddy**: WebSocket support is automatic with `reverse_proxy`
-
-**Port and Path Issues:**
-- **Check**: Reverse proxy forwards to correct FoundryVTT port (usually 30000)
-- **Check**: No path conflicts (e.g., `/socket.io/` path is preserved)
-- **Try**: Direct connection to bypass proxy temporarily
-
-### Getting Help
-
-1. **Check logs**: Run with `LOG_LEVEL=debug` for detailed information
-2. **Test manually**: Try accessing FoundryVTT directly in your browser
-3. **Network issues**: Verify firewall and network configuration
-
-## Advanced Configuration
-
-### Direct User ID
-
-If username resolution fails, set the user ID directly. Find the 16-character document `_id` for your user in FoundryVTT's data:
-
-```env
-FOUNDRY_USER_ID=abc123def456ghij
-```
-
-### Custom Socket Path
-
-If FoundryVTT uses a custom socket path:
-
-```env
-FOUNDRY_SOCKET_PATH=/custom/socket/path/
-```
-
-### Timeout Settings
-
-For slow connections, increase timeouts:
-
-```env
-FOUNDRY_TIMEOUT=30000
-FOUNDRY_RETRY_ATTEMPTS=5
-FOUNDRY_RETRY_DELAY=2000
-```
-
-### Production Deployment
-
-For production use:
-
-```env
-NODE_ENV=production
-LOG_LEVEL=warn
-```
-
-## What's Next?
-
-Once you have a working connection:
-
-1. **Explore all available tools**: Check the README for a complete list
-2. **Customize for your game**: Many tools can be configured for specific game systems
-3. **Add more features**: The server is extensible - add your own tools and resources
-4. **Contribute**: Found bugs or want new features? Contributions welcome!
-
-## Supported FoundryVTT Versions
-
-- **FoundryVTT v11+**: Fully supported
-- **FoundryVTT v10**: Basic support
-- **Earlier versions**: Not tested, may work with limitations
+| Tool | Description |
+|------|-------------|
+| `get_recent_logs` | FoundryVTT server logs |
+| `search_logs` | Search logs |
+| `get_system_health` | Performance metrics |
+| `diagnose_errors` | Error analysis |
+| `get_health_status` | Comprehensive health check |
 
 ---
 
-**Need more help?** Check the main README or open an issue on GitHub.
+## Environment Variables
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `FOUNDRY_URL` | Yes | FoundryVTT server URL | — |
+| `FOUNDRY_USERNAME` | Yes | FoundryVTT username | — |
+| `FOUNDRY_PASSWORD` | Yes | FoundryVTT password | — |
+| `FOUNDRY_USER_ID` | No | 16-char document `_id` (bypasses username resolution) | — |
+| `FOUNDRY_API_KEY` | No | REST API module key (enables diagnostics tools) | — |
+| `LOG_LEVEL` | No | `debug` / `info` / `warn` / `error` | `info` |
+| `FOUNDRY_TIMEOUT` | No | Request timeout in ms | `10000` |
+
+---
+
+## Rebuild Workflow (Docker)
+
+After any source code change:
+
+```bash
+# 1. Build TypeScript
+PATH="/home/pinger/.asdf/installs/nodejs/22.7.0/bin:$PATH" npm run build
+
+# 2. Rebuild Docker image
+docker build -t foundryvtt-mcp:latest .
+
+# 3. Restart Claude Code
+# (new container starts automatically on next tool call)
+```
+
+---
+
+## Troubleshooting
+
+### MCP server doesn't appear in Claude Code
+
+- Run `claude mcp list` to check it's registered
+- Check `claude mcp get foundryvtt` for the config
+- After `docker build`, **restart Claude Code** — the old container won't pick up changes
+
+### "Failed to connect to FoundryVTT"
+
+- FoundryVTT must be running with an **active world** (not the setup screen)
+- In Docker: use `host.docker.internal` instead of `localhost`
+- Check firewall isn't blocking port 30000
+
+### "Authentication failed"
+
+- Username is **case-sensitive**
+- Try setting `FOUNDRY_USER_ID` to the 16-char document `_id` to bypass username resolution
+- Check the user has world-level permissions
+
+### "World data not received / empty results"
+
+- A world must be **loaded and active** in FoundryVTT
+- Try `refresh_world_data` tool
+- Run with `LOG_LEVEL=debug` for verbose output
+
+### Combatant names show as "undefined"
+
+This is fixed — the handler now resolves names via `getRawActor(actorId).name` for FoundryVTT v13+.
+If it reappears, ensure you're running the latest Docker image.
+
+### Spell slots all show 0/X
+
+This is fixed — the handler now reads `system.slots.slotN.prepared[].expended` booleans rather
+than the legacy `value` field (which PF2e v7+ always sets to 0).
+
+---
+
+## Supported FoundryVTT Versions
+
+- **FoundryVTT v13**: Fully tested (primary target)
+- **FoundryVTT v11–v12**: Should work; some PF2e fields may differ
+- **Earlier versions**: Not tested
+
+## Supported Game Systems
+
+- **PF2e (Pathfinder 2e)**: Full support including alliance detection, spell slots, focus points
+- **Other systems**: Core tools (combat state, scene info, actor search, dice) work for any system;
+  PF2e-specific fields gracefully degrade to unavailable
+
+---
+
+**Need more help?** Check `TROUBLESHOOTING.md` or open an issue on GitHub.

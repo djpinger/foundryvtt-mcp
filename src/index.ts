@@ -178,14 +178,15 @@ class FoundryMCPServer {
    */
   async start(): Promise<void> {
     try {
-      // Connect to FoundryVTT
-      await this.foundryClient.connect();
-      logger.info('Connected to FoundryVTT successfully');
-
-      // Start the MCP server
+      // Start the MCP transport first so the client handshake succeeds immediately.
+      // FoundryVTT connects in the background; tool calls will wait for it if needed.
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
       logger.info('FoundryVTT MCP Server started successfully');
+
+      // Connect to FoundryVTT after the MCP handshake is established
+      await this.foundryClient.connect();
+      logger.info('Connected to FoundryVTT successfully');
     } catch (error) {
       logger.error('Failed to start server:', error);
       throw error;

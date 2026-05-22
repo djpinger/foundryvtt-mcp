@@ -96,7 +96,7 @@ class Logger {
    */
   debug(message: string, meta?: unknown): void {
     if (this.shouldLog('debug')) {
-      console.debug(this.formatMessage('debug', message, meta));
+      process.stderr.write(this.formatMessage('debug', message, meta) + '\n');
     }
   }
 
@@ -115,7 +115,7 @@ class Logger {
    */
   info(message: string, meta?: unknown): void {
     if (this.shouldLog('info')) {
-      console.info(this.formatMessage('info', message, meta));
+      process.stderr.write(this.formatMessage('info', message, meta) + '\n');
     }
   }
 
@@ -134,7 +134,7 @@ class Logger {
    */
   warn(message: string, meta?: unknown): void {
     if (this.shouldLog('warn')) {
-      console.warn(this.formatMessage('warn', message, meta));
+      process.stderr.write(this.formatMessage('warn', message, meta) + '\n');
     }
   }
 
@@ -156,7 +156,7 @@ class Logger {
     if (this.shouldLog('error')) {
       const errorDetails =
         error instanceof Error ? { message: error.message, stack: error.stack } : error;
-      console.error(this.formatMessage('error', message, errorDetails));
+      process.stderr.write(this.formatMessage('error', message, errorDetails) + '\n');
     }
   }
 }

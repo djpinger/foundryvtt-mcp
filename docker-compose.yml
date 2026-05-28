@@ -1,5 +1,6 @@
 services:
   foundryvtt-mcp:
+    container_name: foundryvtt-mcp
     image: foundryvtt-mcp:latest
     build:
       context: .

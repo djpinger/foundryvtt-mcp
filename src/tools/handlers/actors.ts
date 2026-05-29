@@ -6,6 +6,7 @@
 
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 import type { FoundryClient } from '../../foundry/client.js';
+import type { WorldActor } from '../../foundry/types.js';
 import { withToolError } from './utils.js';
 
 /**
@@ -74,6 +75,143 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' ? v : undefined;
 }
 
+const SKILL_RANK_LABELS = ['untrained', 'trained', 'expert', 'master', 'legendary'];
+
+function buildCharacterResponse(raw: WorldActor, sys: Record<string, unknown>) {
+  const level = num(dig(sys, 'details', 'level', 'value')) ?? '?';
+  const hpVal = num(dig(sys, 'attributes', 'hp', 'value')) ?? '?';
+  const hpTemp = num(dig(sys, 'attributes', 'hp', 'temp'));
+  const heroPoints = num(dig(sys, 'resources', 'heroPoints', 'value'));
+  const heroMax = num(dig(sys, 'resources', 'heroPoints', 'max'));
+  const keyAbility = str(dig(sys, 'details', 'keyability', 'value'));
+  const languages = (dig(sys, 'details', 'languages', 'value') as string[] | undefined) ?? [];
+
+  // Skills with proficiency rank
+  const skillsObj = dig(sys, 'skills') as Record<string, { rank?: number }> | undefined;
+  const skillLines = skillsObj
+    ? Object.entries(skillsObj)
+        .filter(([, v]) => (v?.rank ?? 0) > 0)
+        .sort(([, a], [, b]) => (b?.rank ?? 0) - (a?.rank ?? 0))
+        .map(([name, v]) => `${name} (${SKILL_RANK_LABELS[v?.rank ?? 0]})`)
+    : [];
+
+  // Class, ancestry, background
+  const classItem = (raw.items ?? []).find((i) => i.type === 'class');
+  const ancestryItem = (raw.items ?? []).find((i) => i.type === 'ancestry');
+  const backgroundItem = (raw.items ?? []).find((i) => i.type === 'background');
+
+  // Weapons and strikes from items
+  const weaponItems = (raw.items ?? []).filter((i) => i.type === 'weapon');
+  const strikeLines = weaponItems.map((w) => {
+    const dmgRolls = dig(w.system, 'damage') as { dice?: number; die?: string; damageType?: string } | undefined;
+    const dmgStr = dmgRolls?.dice && dmgRolls?.die
+      ? `${dmgRolls.dice}${dmgRolls.die} ${dmgRolls.damageType ?? ''}`
+      : '?';
+    const traits = (dig(w.system, 'traits', 'value') as string[] | undefined)?.join(', ') ?? '';
+    const category = str(dig(w.system, 'category')) ?? '';
+    return `  • **${w.name}** — ${dmgStr}${category ? ` [${category}]` : ''}${traits ? ` [${traits}]` : ''}`;
+  });
+
+  // Impulses (feats/actions with the 'impulse' trait)
+  const impulseItems = (raw.items ?? []).filter((i) =>
+    (i.type === 'feat' || i.type === 'action') &&
+    ((dig(i.system, 'traits', 'value') as string[] | undefined) ?? []).includes('impulse'),
+  );
+  const impulseLines = impulseItems.map((imp) => {
+    const actions = str(dig(imp.system, 'actionType', 'value')) ?? str(dig(imp.system, 'actions', 'value')) ?? '?';
+    const traits = (dig(imp.system, 'traits', 'value') as string[] | undefined)
+      ?.filter((t) => t !== 'impulse')
+      .join(', ') ?? '';
+    return `  • **${imp.name}** (${actions}⬛)${traits ? ` [${traits}]` : ''}`;
+  });
+
+  // Spellcasting
+  const spellItems = (raw.items ?? []).filter((i) => i.type === 'spell');
+  const spellById = new Map(spellItems.map((sp) => [sp._id, sp]));
+  const spellcasting = (raw.items ?? []).filter((i) => i.type === 'spellcastingEntry');
+  const slotLines: string[] = [];
+
+  for (const entry of spellcasting) {
+    const entSys = entry.system;
+    const tradition = str(dig(entSys, 'tradition', 'value')) ?? '';
+    const preparedType = str(dig(entSys, 'prepared', 'value')) ?? '';
+    const isFocus = preparedType === 'focus';
+    const spellDC = num(dig(entSys, 'spelldc', 'dc')) ?? '?';
+    const spellAtk = num(dig(entSys, 'spelldc', 'value'));
+    const atkStr = spellAtk !== undefined ? ` attack: +${spellAtk}` : '';
+
+    slotLines.push(`  • **${entry.name}** (${tradition}${isFocus ? ' focus' : ''}) DC ${spellDC}${atkStr}`);
+
+    if (isFocus) {
+      const focusVal = num(dig(sys, 'resources', 'focus', 'value'));
+      const focusMax = num(dig(sys, 'resources', 'focus', 'max'));
+      if (focusVal !== undefined && focusMax !== undefined) {
+        slotLines.push(`    Focus points: ${focusVal}/${focusMax}`);
+      }
+      const focusSpells = spellItems.filter(
+        (sp) => (dig(sp.system, 'location', 'value') as string) === entry._id,
+      );
+      for (const fs of focusSpells) {
+        const spLevel = num(dig(fs.system, 'level', 'value')) ?? '?';
+        const actions = str(dig(fs.system, 'time', 'value')) ?? str(dig(fs.system, 'cast', 'value')) ?? '?';
+        const traits = (dig(fs.system, 'traits', 'value') as string[] | undefined)?.join(', ') ?? '';
+        slotLines.push(`    • **${fs.name}** (rank ${spLevel}, ${actions}⬛)${traits ? ` [${traits}]` : ''}`);
+      }
+      continue;
+    }
+
+    const slots = dig(entSys, 'slots') as
+      | Record<string, { prepared?: Array<{ id: string; expended: boolean }>; max: number }>
+      | undefined;
+    if (!slots) continue;
+
+    for (let rank = 0; rank <= 10; rank++) {
+      const slotData = slots[`slot${rank}`];
+      if (!slotData?.prepared?.length) continue;
+      const rankLabel = rank === 0 ? 'Cantrips' : `Rank ${rank}`;
+      const entries = slotData.prepared.map((p) => {
+        const sp = spellById.get(p.id);
+        return p.expended ? `~~${sp?.name ?? p.id}~~ ❌` : `${sp?.name ?? p.id} ✅`;
+      });
+      const ready = slotData.prepared.filter((p) => !p.expended).length;
+      slotLines.push(`    ${rankLabel} (${ready}/${slotData.prepared.length} ready): ${entries.join(', ')}`);
+    }
+  }
+
+  const identity = [classItem?.name, ancestryItem?.name, backgroundItem?.name].filter(Boolean).join(' / ');
+
+  const lines: string[] = [
+    `🎭 **${raw.name}** (character, level ${level})`,
+    identity ? `**Class/Ancestry/Background:** ${identity}` : '',
+    `**HP:** ${hpVal}${hpTemp ? ` (+${hpTemp} temp)` : ''} | **Hero Points:** ${heroPoints ?? '?'}/${heroMax ?? '?'}`,
+    `*(AC, saves, perception, and ability scores are computed client-side by PF2e and not available in stored data)*`,
+  ].filter((l) => l !== '');
+
+  if (languages.length) lines.push(`**Languages:** ${languages.join(', ')}`);
+
+  if (skillLines.length) {
+    lines.push('', '**🎯 Trained Skills:**');
+    lines.push(`  ${skillLines.join(', ')}`);
+  }
+
+  if (strikeLines.length) {
+    lines.push('', '**⚔️ Weapons:**');
+    lines.push(...strikeLines);
+  }
+
+  if (impulseLines.length) {
+    lines.push('', '**💨 Impulses:**');
+    lines.push(...impulseLines);
+  }
+
+  if (slotLines.length) {
+    lines.push('', '**🔮 Spellcasting:**');
+    lines.push(...slotLines);
+  }
+
+  return { content: [{ type: 'text', text: lines.join('\n') }] };
+}
+
 /**
  * Handles detailed actor information requests — uses getRawActor for full PF2e data
  */
@@ -96,6 +234,13 @@ export async function handleGetActorDetails(
     }
 
     const sys = raw.system;
+
+    // ── PF2e player character branch ─────────────────────────────────────────
+    // Derived stats (AC, saves, perception, ability scores, HP max) are computed
+    // in-browser by the PF2e system and are not present in stored source data.
+    if (raw.type === 'character') {
+      return buildCharacterResponse(raw, sys);
+    }
 
     // ── Basic stats ─────────────────────────────────────────────────────────
     const level = num(dig(sys, 'details', 'level', 'value')) ?? num(dig(sys, 'details', 'cr')) ?? '?';
